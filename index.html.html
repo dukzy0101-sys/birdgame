@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Бүргэд нисэх тоглоом</title>
+<style>
+:root{--bg:#e8f1f5;--fg:#12313a;--muted:#5d727a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1b20;--fg:#e7f0f2;--muted:#93aab2}}
+:root[data-theme="dark"]{--bg:#0f1b20;--fg:#e7f0f2;--muted:#93aab2}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px;overflow:hidden}
+h1{font-size:22px;font-weight:700}
+canvas{width:min(100%,380px,calc((100vh - 110px) * 360 / 560));aspect-ratio:360/560;border-radius:12px;touch-action:none;display:block;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+p{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<h1>🦅 Бүргэд нисэх</h1>
+<canvas id="c" width="1080" height="1680" tabindex="0" aria-label="Тоглоомын талбай"></canvas>
+<p>Товших · Зай (Space) · ↑ товчоор дэвсэж ниснэ</p>
+<script>
+var cv=document.getElementById('c'),x=cv.getContext('2d');
+var W=360,H=560,GH=70,PW=56,GAP=160;
+var best=0;try{best=+localStorage.getItem('bird_best')||0}catch(e){}
+var st='ready',b,pipes,score,t=0,dieAt=0,last=0,spawnX;
+function reset(){b={x:90,y:H/2-30,v:0,r:14};pipes=[];score=0;spawnX=W+40;st='ready'}
+function flap(){
+  var now=performance.now();
+  if(st==='ready'){st='play';b.v=-400}
+  else if(st==='play'){b.v=-400}
+  else if(st==='over'&&now-dieAt>450){reset()}
+}
+cv.addEventListener('pointerdown',function(e){e.preventDefault();flap()});
+document.addEventListener('keydown',function(e){if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();flap()}});
+function die(){
+  st='over';dieAt=performance.now();
+  if(score>best){best=score;try{localStorage.setItem('bird_best',best)}catch(e){}}
+}
+function update(dt){
+  t+=dt;
+  if(st==='ready'){b.y=H/2-30+Math.sin(t*4)*8;return}
+  if(st!=='play')return;
+  var sp=140+Math.min(score*3,80);
+  b.v+=1450*dt;b.y+=b.v*dt;
+  if(b.y-b.r<0){b.y=b.r;b.v=0}
+  if(!pipes.length||pipes[pipes.length-1].x<W-210){
+    pipes.push({x:W+10,g:120+Math.random()*(H-GH-240),ok:false})
+  }
+  pipes.forEach(function(p){
+    p.x-=sp*dt;
+    if(!p.ok&&p.x+PW<b.x-b.r){p.ok=true;score++}
+    if(b.x+b.r>p.x&&b.x-b.r<p.x+PW&&(b.y-b.r<p.g-GAP/2||b.y+b.r>p.g+GAP/2))die();
+  });
+  pipes=pipes.filter(function(p){return p.x>-PW-10});
+  if(b.y+b.r>H-GH){b.y=H-GH-b.r;die()}
+}
+function rr(px,py,w,h,r){x.beginPath();x.roundRect?x.roundRect(px,py,w,h,r):x.rect(px,py,w,h);x.fill()}
+function pipe(p){
+  var top=p.g-GAP/2,bot=p.g+GAP/2;
+  x.fillStyle='#5fb3a1';
+  rr(p.x+4,-20,PW-8,top+20-14,0);rr(p.x+4,bot+14,PW-8,H-GH-bot,0);
+  x.fillStyle='#4a9c8a';
+  rr(p.x-3,top-26,PW+6,26,8);rr(p.x-3,bot,PW+6,26,8);
+}
+function bird(){
+  x.save();x.translate(b.x,b.y);
+  x.rotate(Math.max(-.45,Math.min(1,b.v/650)));
+  var w=Math.sin(t*(st==='play'?22:8))*6;
+  x.fillStyle='#ffd23f';x.strokeStyle='#e9a817';x.lineWidth=2;
+  x.beginPath();x.moveTo(-4,-14);x.lineTo(-8,-22);x.moveTo(1,-15);x.lineTo(2,-24);x.moveTo(6,-14);x.lineTo(11,-21);
+  x.lineCap='round';x.lineWidth=3;x.stroke();x.lineWidth=2;
+  x.beginPath();x.arc(0,0,17,0,7);x.fill();x.stroke();
+  x.fillStyle='#fff1b0';x.beginPath();x.ellipse(-2,6,10,8,0,0,7);x.fill();
+  x.fillStyle='#f4b400';x.beginPath();x.ellipse(-9,2+w*.4,9,6,-.5+w*.04,0,7);x.fill();
+  x.fillStyle='#fff';x.beginPath();x.arc(8,-5,6.5,0,7);x.fill();
+  x.fillStyle='#222';x.beginPath();x.arc(10,-5,3.4,0,7);x.fill();
+  x.fillStyle='#fff';x.beginPath();x.arc(11,-6.2,1.2,0,7);x.fill();
+  x.fillStyle='rgba(255,120,120,.55)';x.beginPath();x.ellipse(7,5,4.5,3,0,0,7);x.fill();
+  x.fillStyle='#ff9a2e';x.beginPath();x.moveTo(15,0);x.lineTo(25,3);x.lineTo(15,7);x.closePath();x.fill();
+  x.restore();
+}
+function txt(s,y,size,col){x.fillStyle=col||'#fff';x.font='700 '+size+'px Segoe UI,Arial,sans-serif';x.textAlign='center';x.fillText(s,W/2,y)}
+function draw(){
+  x.setTransform(3,0,0,3,0,0);
+  var g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#bfe3f5');g.addColorStop(1,'#eef8fc');
+  x.fillStyle=g;x.fillRect(0,0,W,H);
+  x.fillStyle='#fff';
+  for(var i=0;i<3;i++){var cx=((i*190-t*12)%(W+140)+W+140)%(W+140)-70,cy=90+i*70;
+    x.beginPath();x.ellipse(cx,cy,32,12,0,0,7);x.ellipse(cx+18,cy-6,20,11,0,0,7);x.fill()}
+  pipes.forEach(pipe);
+  x.fillStyle='#9ad18f';x.fillRect(0,H-GH,W,GH);
+  x.fillStyle='#7bbd70';x.fillRect(0,H-GH,W,6);
+  bird();
+  if(st!=='ready'){x.save();x.shadowColor='rgba(0,0,0,.25)';x.shadowBlur=6;txt(score,70,52);x.restore()}
+  if(st==='ready'){x.save();x.shadowColor='rgba(0,0,0,.25)';x.shadowBlur=6;txt('Бүргэд нисэх',180,34);txt('Эхлэхийн тулд товш',218,18);x.restore()}
+  if(st==='over'){
+    x.fillStyle='rgba(18,49,58,.78)';x.beginPath();x.roundRect?x.roundRect(40,170,W-80,200,14):x.rect(40,170,W-80,200);x.fill();
+    txt('Дууслаа',220,32);txt('Оноо: '+score,260,22);txt('Рекорд: '+best,292,22,'#ffd23f');
+    txt(performance.now()-dieAt>450?'Дахин тоглохын тулд товш':'...',338,16);
+  }
+}
+function loop(ts){
+  var dt=Math.min((ts-last)/1000||0,.05);last=ts;
+  update(dt);draw();requestAnimationFrame(loop)
+}
+reset();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
